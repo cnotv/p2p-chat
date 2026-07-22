@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P2P Chat</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#0f1419;color:#e7e9ea;height:100vh;display:flex;flex-direction:column}header{padding:14px 18px;background:#1a2028;border-bottom:1px solid #2a323d;display:flex;align-items:center;gap:10px}header h1{font-size:17px;font-weight:600}#status{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;background:#3a2a2a;color:#ff8a8a}#status.on{background:#1e3a26;color:#7ee89a}.setup{padding:18px;overflow:auto;flex:1}.setup h2{font-size:14px;margin:14px 0 6px;color:#9aa4af}.setup p{font-size:13px;color:#8a94a0;margin-bottom:8px;line-height:1.5}.row{display:flex;gap:8px;margin-bottom:12px}button{background:#1d9bf0;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}button:hover{background:#1a8cd8}button.sec{background:#2a323d}button:disabled{opacity:.4;cursor:not-allowed}textarea{width:100%;background:#0a0d11;border:1px solid #2a323d;border-radius:8px;color:#e7e9ea;padding:10px;font-family:monospace;font-size:11px;resize:vertical;min-height:70px}.chat{flex:1;display:none;flex-direction:column;overflow:hidden}#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}.msg{max-width:75%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}.me{align-self:flex-end;background:#1d9bf0;border-bottom-right-radius:4px}.them{align-self:flex-start;background:#2a323d;border-bottom-left-radius:4px}.sys{align-self:center;font-size:12px;color:#8a94a0;background:none}.inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a323d;background:#1a2028}.inbar input{flex:1;background:#0a0d11;border:1px solid #2a323d;border-radius:20px;color:#e7e9ea;padding:11px 16px;font-size:14px;outline:none}.inbar input:focus{border-color:#1d9bf0}.tabs{display:flex;gap:8px;margin-bottom:14px}.tabs button{flex:1;background:#2a323d}.tabs button.act{background:#1d9bf0}.pane{display:none}.pane.show{display:block}</style></head><body>
-<header><span style="font-size:20px">💬</span><h1>P2P Chat</h1><span id="status">Disconnected</span></header>
+<header><span style="font-size:20px">💬</span><h1>P2P Chat</h1><span id="status">Disconnected</span><button id="leave" class="sec" style="display:none;padding:6px 12px;font-size:12px;margin-left:10px">Quit chat</button></header>
 <div class="setup" id="setup">
 <div class="tabs"><button id="tabHost" class="act">Host a chat</button><button id="tabJoin">Join a chat</button></div>
 <div class="pane show" id="paneHost">
@@ -21,7 +21,7 @@ const $=id=>document.getElementById(id);let pc,dc;
 const cfg={iceServers:[{urls:'stun:stun.l.google.com:19302'}]};
 function setStatus(t,on){$('status').textContent=t;$('status').classList.toggle('on',!!on)}
 function addMsg(t,cls){const d=document.createElement('div');d.className='msg '+cls;d.textContent=t;$('msgs').appendChild(d);$('msgs').scrollTop=$('msgs').scrollHeight}
-function gotoChat(){$('setup').style.display='none';$('chat').style.display='flex';addMsg('Connected! Say hi 👋','sys');$('txt').focus()}
+function gotoChat(){$('setup').style.display='none';$('chat').style.display='flex';$('leave').style.display='inline-block';addMsg('Connected! Say hi 👋','sys');$('txt').focus()}
 function waitIce(pc){return new Promise(res=>{if(pc.iceGatheringState==='complete')return res();const c=()=>{if(pc.iceGatheringState==='complete'){pc.removeEventListener('icegatheringstatechange',c);res()}};pc.addEventListener('icegatheringstatechange',c);setTimeout(res,3000)})}
 function pack(o){return btoa(JSON.stringify(o))}
 function unpack(s){return JSON.parse(atob(s.trim()))}
@@ -37,4 +37,7 @@ $('tabJoin').onclick=()=>{$('tabJoin').classList.add('act');$('tabHost').classLi
 // send
 function doSend(){const v=$('txt').value.trim();if(!v||!dc||dc.readyState!=='open')return;dc.send(v);addMsg(v,'me');$('txt').value=''}
 $('send').onclick=doSend;$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')doSend()});
+// quit chat: close the connection and return to setup
+function quitChat(){try{dc&&dc.close();pc&&pc.close()}catch(e){}dc=pc=null;$('chat').style.display='none';$('setup').style.display='block';$('leave').style.display='none';$('msgs').innerHTML='';$('hostOffer').value='';$('hostAnswer').value='';$('joinOffer').value='';$('joinAnswer').value='';$('btnCreate').disabled=false;setStatus('Disconnected')}
+$('leave').onclick=quitChat;
 </script></body></html>
