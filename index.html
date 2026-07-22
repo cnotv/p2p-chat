@@ -1,12 +1,14 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P2P Chat</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#0f1419;color:#e7e9ea;height:100vh;display:flex;flex-direction:column}header{padding:14px 18px;background:#1a2028;border-bottom:1px solid #2a323d;display:flex;align-items:center;gap:10px}header h1{font-size:17px;font-weight:600}#status{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;background:#3a2a2a;color:#ff8a8a}#status.on{background:#1e3a26;color:#7ee89a}.chat{flex:1;display:flex;flex-direction:column;overflow:hidden}.peers{padding:8px 16px;font-size:12px;color:#8a94a0;border-bottom:1px solid #2a323d;background:#141a21;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.peer{background:#2a323d;padding:2px 9px;border-radius:12px;font-size:11px;color:#cdd4dc}#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}.msg{max-width:75%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}.msg .who{font-size:10px;opacity:.7;margin-bottom:2px}.me{align-self:flex-end;background:#1d9bf0;border-bottom-right-radius:4px}.them{align-self:flex-start;background:#2a323d;border-bottom-left-radius:4px}.sys{align-self:center;font-size:12px;color:#8a94a0;background:none}.inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a323d;background:#1a2028}.inbar input{flex:1;background:#0a0d11;border:1px solid #2a323d;border-radius:20px;color:#e7e9ea;padding:11px 16px;font-size:14px;outline:none}.inbar input:focus{border-color:#1d9bf0}button{background:#1d9bf0;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}button:hover{background:#1a8cd8}</style></head><body>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P2P Chat</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#0f1419;color:#e7e9ea;height:100vh;display:flex;flex-direction:column}header{padding:14px 18px;background:#1a2028;border-bottom:1px solid #2a323d;display:flex;align-items:center;gap:10px}header h1{font-size:17px;font-weight:600}#status{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;background:#3a2a2a;color:#ff8a8a}#status.on{background:#1e3a26;color:#7ee89a}#status.pending{background:#3a3320;color:#ffd27e}.chat{flex:1;display:flex;flex-direction:column;overflow:hidden}.peers{padding:8px 16px;font-size:12px;color:#8a94a0;border-bottom:1px solid #2a323d;background:#141a21;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.peer{background:#2a323d;padding:2px 9px;border-radius:12px;font-size:11px;color:#cdd4dc}#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}.msg{max-width:75%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}.msg .who{font-size:10px;opacity:.7;margin-bottom:2px}.me{align-self:flex-end;background:#1d9bf0;border-bottom-right-radius:4px}.them{align-self:flex-start;background:#2a323d;border-bottom-left-radius:4px}.sys{align-self:center;font-size:12px;color:#8a94a0;background:none}.inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a323d;background:#1a2028}.inbar input{flex:1;background:#0a0d11;border:1px solid #2a323d;border-radius:20px;color:#e7e9ea;padding:11px 16px;font-size:14px;outline:none}.inbar input:focus{border-color:#1d9bf0}button{background:#1d9bf0;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}button:hover{background:#1a8cd8}</style></head><body>
 <header><span style="font-size:20px">💬</span><h1>P2P Chat</h1><span id="status">Connecting…</span></header>
 <div class="chat" id="chat"><div class="peers" id="peers"><span style="opacity:.6">Peers:</span></div><div id="msgs"></div><div class="inbar"><input id="txt" placeholder="Type a message…" autocomplete="off"><button id="send">Send</button></div></div>
 <script>
 const $=id=>document.getElementById(id);
 const ROOM='chat';
 let self=null;
+let connected=false;
+let gotAnyResponse=false;
 function post(m){window.parent.postMessage(m,'*')}
-function setStatus(t,on){$('status').textContent=t;$('status').classList.toggle('on',!!on)}
+function setStatus(t,mode){const el=$('status');el.textContent=t;el.classList.remove('on','pending');if(mode)el.classList.add(mode)}
 function shortId(id){return id?String(id).slice(0,6):'?'}
 function nameOf(u){return u.name||u.username||shortId(u.id||u)}
 function addMsg(t,cls,who){const d=document.createElement('div');d.className='msg '+cls;if(who){const w=document.createElement('div');w.className='who';w.textContent=who;d.appendChild(w)}const b=document.createElement('div');b.textContent=t;d.appendChild(b);$('msgs').appendChild(d);$('msgs').scrollTop=$('msgs').scrollHeight}
@@ -14,8 +16,39 @@ function renderPeers(users){const el=$('peers');el.innerHTML='<span style="opaci
 function doSend(){const v=$('txt').value.trim();if(!v)return;post({type:'p2p-send',room:ROOM,payload:{text:v,name:self?nameOf(self):'me',from:self?self.id:null}});addMsg(v,'me',self?nameOf(self):'me');$('txt').value=''}
 $('send').onclick=doSend;
 $('txt').addEventListener('keydown',e=>{if(e.key==='Enter')doSend()});
-window.addEventListener('message',e=>{const d=e.data;if(!d||!d.type)return;switch(d.type){case 'p2p-self':self=d.user||d.self||d;setStatus('Connected',true);renderPeers([self]);break;case 'p2p-users':setStatus('Connected',true);renderPeers(d.users||d.list||[]);break;case 'p2p-message':{if(!d.payload)return;if(d.room&&d.room!==ROOM)return;const p=d.payload;if(self&&p.from&&p.from===self.id)return;addMsg(p.text!=null?p.text:String(p),'them',p.name||shortId(p.from));break}}});
-post({type:'p2p-subscribe'});
+window.addEventListener('message',e=>{const d=e.data;if(!d||!d.type)return;switch(d.type){
+  case 'p2p-self':
+    self=d.user||d.self||d;
+    gotAnyResponse=true;connected=true;
+    setStatus('Connected','on');
+    renderPeers([self]);
+    break;
+  case 'p2p-users':
+    gotAnyResponse=true;connected=true;
+    setStatus('Connected','on');
+    renderPeers(d.users||d.list||[]);
+    break;
+  case 'p2p-message':{
+    if(!d.payload)return;if(d.room&&d.room!==ROOM)return;const p=d.payload;if(self&&p.from&&p.from===self.id)return;addMsg(p.text!=null?p.text:String(p),'them',p.name||shortId(p.from));
+    break}
+}});
+function trySubscribe(){post({type:'p2p-subscribe'})}
+// Kick off subscription immediately, then keep retrying periodically in case
+// the hub/room wasn't ready yet when we first asked (e.g. room just created/joined).
+trySubscribe();
+let attempts=0;
+const retryTimer=setInterval(()=>{
+  attempts++;
+  if(!connected){
+    trySubscribe();
+    setStatus(attempts>2?'Reconnecting…':'Connecting…','pending');
+  }
+},1500);
+// Also periodically re-announce presence even once connected, so we recover
+// automatically if the hub/room gets recreated later.
+setInterval(()=>{trySubscribe()},8000);
+// If parent isn't actually a hub (standalone run), stop spamming pending state.
+setTimeout(()=>{if(!gotAnyResponse){setStatus('Offline (no hub)','')}},9000);
 addMsg('Joined the room. Say hi 👋','sys');
 $('txt').focus();
 </script></body></html>
