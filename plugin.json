@@ -1,6 +1,6 @@
 {
   "name": "P2P Chat",
-  "description": "Start a peer-to-peer chat with another player using WebRTC. No server needed — exchange connection codes manually to connect directly.",
+  "description": "Room chat that uses the P2P Hub for presence and messaging. Automatically connects to everyone in the current room — no manual connection codes needed.",
   "emoji": "💬",
   "entry": "index.html"
 }
