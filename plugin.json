@@ -1,6 +1,6 @@
 {
   "name": "P2P Chat",
-  "description": "Room chat that uses the P2P Hub for presence and messaging. Automatically connects to everyone in the current room — no manual connection codes needed.",
+  "description": "Peer-to-peer chat over WebRTC (Trystero): share a room code and connect instantly — no manual codes, no server.",
   "emoji": "💬",
   "entry": "index.html"
 }
