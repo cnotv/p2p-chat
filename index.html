@@ -1,54 +1,91 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P2P Chat</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:system-ui,-apple-system,sans-serif;background:#0f1419;color:#e7e9ea;height:100vh;display:flex;flex-direction:column}header{padding:14px 18px;background:#1a2028;border-bottom:1px solid #2a323d;display:flex;align-items:center;gap:10px}header h1{font-size:17px;font-weight:600}#status{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;background:#3a2a2a;color:#ff8a8a}#status.on{background:#1e3a26;color:#7ee89a}#status.pending{background:#3a3320;color:#ffd27e}.chat{flex:1;display:flex;flex-direction:column;overflow:hidden}.peers{padding:8px 16px;font-size:12px;color:#8a94a0;border-bottom:1px solid #2a323d;background:#141a21;display:flex;gap:6px;flex-wrap:wrap;align-items:center}.peer{background:#2a323d;padding:2px 9px;border-radius:12px;font-size:11px;color:#cdd4dc}#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}.msg{max-width:75%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}.msg .who{font-size:10px;opacity:.7;margin-bottom:2px}.me{align-self:flex-end;background:#1d9bf0;border-bottom-right-radius:4px}.them{align-self:flex-start;background:#2a323d;border-bottom-left-radius:4px}.sys{align-self:center;font-size:12px;color:#8a94a0;background:none}.inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a323d;background:#1a2028}.inbar input{flex:1;background:#0a0d11;border:1px solid #2a323d;border-radius:20px;color:#e7e9ea;padding:11px 16px;font-size:14px;outline:none}.inbar input:focus{border-color:#1d9bf0}button{background:#1d9bf0;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}button:hover{background:#1a8cd8}</style></head><body>
-<header><span style="font-size:20px">💬</span><h1>P2P Chat</h1><span id="status">Connecting…</span></header>
-<div class="chat" id="chat"><div class="peers" id="peers"><span style="opacity:.6">Peers:</span></div><div id="msgs"></div><div class="inbar"><input id="txt" placeholder="Type a message…" autocomplete="off"><button id="send">Send</button></div></div>
-<script>
-const $=id=>document.getElementById(id);
-const ROOM='chat';
-let self=null;
-let connected=false;
-let gotAnyResponse=false;
-function post(m){window.parent.postMessage(m,'*')}
-function setStatus(t,mode){const el=$('status');el.textContent=t;el.classList.remove('on','pending');if(mode)el.classList.add(mode)}
-function shortId(id){return id?String(id).slice(0,6):'?'}
-function nameOf(u){return u.name||u.username||shortId(u.id||u)}
-function addMsg(t,cls,who){const d=document.createElement('div');d.className='msg '+cls;if(who){const w=document.createElement('div');w.className='who';w.textContent=who;d.appendChild(w)}const b=document.createElement('div');b.textContent=t;d.appendChild(b);$('msgs').appendChild(d);$('msgs').scrollTop=$('msgs').scrollHeight}
-function renderPeers(users){const el=$('peers');el.innerHTML='<span style="opacity:.6">Peers:</span>';if(!users||!users.length){const s=document.createElement('span');s.className='peer';s.textContent='no one yet';el.appendChild(s);return}users.forEach(u=>{const s=document.createElement('span');s.className='peer';s.textContent=nameOf(u)+(self&&(u.id===self.id)?' (you)':'');el.appendChild(s)})}
-function doSend(){const v=$('txt').value.trim();if(!v)return;post({type:'p2p-send',room:ROOM,payload:{text:v,name:self?nameOf(self):'me',from:self?self.id:null}});addMsg(v,'me',self?nameOf(self):'me');$('txt').value=''}
-$('send').onclick=doSend;
-$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')doSend()});
-window.addEventListener('message',e=>{const d=e.data;if(!d||!d.type)return;switch(d.type){
-  case 'p2p-self':
-    self=d.user||d.self||d;
-    gotAnyResponse=true;connected=true;
-    setStatus('Connected','on');
-    renderPeers([self]);
-    break;
-  case 'p2p-users':
-    gotAnyResponse=true;connected=true;
-    setStatus('Connected','on');
-    renderPeers(d.users||d.list||[]);
-    break;
-  case 'p2p-message':{
-    if(!d.payload)return;if(d.room&&d.room!==ROOM)return;const p=d.payload;if(self&&p.from&&p.from===self.id)return;addMsg(p.text!=null?p.text:String(p),'them',p.name||shortId(p.from));
-    break}
-}});
-function trySubscribe(){post({type:'p2p-subscribe'})}
-// Kick off subscription immediately, then keep retrying periodically in case
-// the hub/room wasn't ready yet when we first asked (e.g. room just created/joined).
-trySubscribe();
-let attempts=0;
-const retryTimer=setInterval(()=>{
-  attempts++;
-  if(!connected){
-    trySubscribe();
-    setStatus(attempts>2?'Reconnecting…':'Connecting…','pending');
-  }
-},1500);
-// Also periodically re-announce presence even once connected, so we recover
-// automatically if the hub/room gets recreated later.
-setInterval(()=>{trySubscribe()},8000);
-// If parent isn't actually a hub (standalone run), stop spamming pending state.
-setTimeout(()=>{if(!gotAnyResponse){setStatus('Offline (no hub)','')}},9000);
-addMsg('Joined the room. Say hi 👋','sys');
-$('txt').focus();
-</script></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>P2P Chat</title><style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f1419;color:#e7e9ea;min-height:100vh;display:flex;flex-direction:column}
+header{padding:14px 18px;background:#1a2028;border-bottom:1px solid #2a323d;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;font-weight:600}
+#status{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:20px;background:#3a2a2a;color:#ff8a8a}
+#status.on{background:#1e3a26;color:#7ee89a}
+button{background:#1d9bf0;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+button:hover{background:#1a8cd8}
+button.sec{background:#2a323d}
+button:disabled{opacity:.4;cursor:not-allowed}
+.lobby{padding:20px;max-width:460px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.lobby h2{font-size:16px;margin-bottom:4px}
+label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#9aa4af}
+input{background:#0a0d11;border:1px solid #2a323d;border-radius:8px;color:#e7e9ea;padding:11px 14px;font-size:14px;outline:none;width:100%}
+input:focus{border-color:#1d9bf0}
+.rowc{display:flex;gap:8px}
+.note{font-size:12px;color:#8a94a0;line-height:1.5;margin-top:4px}
+.chat{flex:1;display:none;flex-direction:column;overflow:hidden}
+#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:75%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}
+.msg .who{font-size:11px;color:#8a94a0;margin-bottom:2px}
+.me{align-self:flex-end;background:#1d9bf0;border-bottom-right-radius:4px}
+.them{align-self:flex-start;background:#2a323d;border-bottom-left-radius:4px}
+.sys{align-self:center;font-size:12px;color:#8a94a0;background:none}
+.inbar{display:flex;gap:8px;padding:12px;border-top:1px solid #2a323d;background:#1a2028}
+.inbar input{flex:1;border-radius:20px}
+</style></head>
+<body>
+<header><span style="font-size:20px">💬</span><h1>P2P Chat</h1><span id="status">Not connected</span><button id="leave" class="sec" style="display:none;padding:6px 12px;font-size:12px;margin-left:10px">Quit chat</button></header>
+
+<div class="lobby" id="lobby">
+  <h2>Join a chat room</h2>
+  <label>Your name<input id="name" maxlength="24" placeholder="e.g. Alex"></label>
+  <label>Room code (a shared secret)
+    <div class="rowc"><input id="room" placeholder="both of you enter the same code"><button id="gen" class="sec">Generate</button></div>
+  </label>
+  <button id="join">Join room</button>
+  <p class="note">Share the room code privately — anyone with it can join and read the chat. The code also encrypts the connection. Messages go directly peer&#8209;to&#8209;peer; only the initial connection uses public relays (they never see your messages, but do see your IP during setup).</p>
+</div>
+
+<div class="chat" id="chat"><div id="msgs"></div><div class="inbar"><input id="txt" placeholder="Type a message..." autocomplete="off"><button id="send">Send</button><button id="invite" class="sec">Invite link</button></div></div>
+
+<script type="module">
+import { joinRoom, selfId } from 'https://esm.sh/trystero@0.23.0/nostr'
+const $=id=>document.getElementById(id)
+const APP='cnotv-builder-p2p'
+let room=null, sendMsg=null, myName=''
+
+function setStatus(t,on){$('status').textContent=t;$('status').classList.toggle('on',!!on)}
+function addMsg(text,cls,who){const d=document.createElement('div');d.className='msg '+cls;if(who){const w=document.createElement('div');w.className='who';w.textContent=who;d.appendChild(w)}const b=document.createElement('div');b.textContent=text;d.appendChild(b);$('msgs').appendChild(d);$('msgs').scrollTop=$('msgs').scrollHeight}
+function rand(){return Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,6)}
+function peerCount(){return room?Object.keys(room.getPeers()).length:0}
+function refreshStatus(){const n=peerCount();setStatus(n?('Connected · '+n+' peer'+(n>1?'s':'')):'Waiting for a peer…',n>0)}
+
+const hash=new URLSearchParams(location.hash.slice(1))
+if(hash.get('room'))$('room').value=hash.get('room')
+
+$('gen').onclick=()=>{$('room').value=rand()}
+
+$('join').onclick=()=>{const code=$('room').value.trim();if(!code){alert('Enter or generate a room code first.');return}myName=$('name').value.trim()||('guest-'+selfId.slice(0,4));connect(code)}
+
+function connect(code){
+  $('lobby').style.display='none';$('chat').style.display='flex';$('leave').style.display='inline-block'
+  setStatus('Connecting…')
+  try{location.hash='room='+encodeURIComponent(code)}catch(e){}
+  try{
+    room=joinRoom({appId:APP,password:code},code)
+  }catch(e){addMsg('Could not start the connection: '+e.message,'sys');return}
+  const [s,get]=room.makeAction('msg')
+  sendMsg=s
+  get((payload,peerId)=>{if(payload&&typeof payload.text==='string'&&payload.text!==''){addMsg(payload.text,'them',(payload.name||('peer-'+peerId.slice(0,4))))}})
+  room.onPeerJoin(()=>{refreshStatus();addMsg('A peer joined 👋','sys')})
+  room.onPeerLeave(()=>{refreshStatus();addMsg('A peer left.','sys')})
+  addMsg('Waiting for someone to join with the same room code…','sys')
+}
+
+function doSend(){const v=$('txt').value.trim();if(!v||!sendMsg)return;sendMsg({text:v,name:myName});addMsg(v,'me');$('txt').value=''}
+$('send').onclick=doSend
+$('txt').addEventListener('keydown',e=>{if(e.key==='Enter')doSend()})
+
+$('invite').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$('invite').textContent='Copied!';setTimeout(()=>$('invite').textContent='Invite link',1500)}catch(e){prompt('Copy this invite link:',location.href)}}
+
+function quit(){try{room&&room.leave()}catch(e){}room=null;sendMsg=null;$('chat').style.display='none';$('lobby').style.display='block';$('leave').style.display='none';$('msgs').innerHTML='';setStatus('Not connected');try{location.hash=''}catch(e){}}
+$('leave').onclick=quit
+
+function reportSize(){try{parent.postMessage({type:'resize',height:document.body.scrollHeight},'*')}catch(e){}}
+try{new ResizeObserver(reportSize).observe(document.body)}catch(e){}
+reportSize()
+</script>
+</body></html>
